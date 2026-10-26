@@ -1,0 +1,83 @@
+# Environment
+.env
+.env.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+.venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Project specific
+# The SQLite DB is the system of record and is large (WAL sidecars included).
+# It is NOT committed to git — use `legiscanner backup` / the backup strategy in
+# DEPLOYMENT.md instead (git history bloats and concurrent-writer corruption is
+# a real risk with a WAL DB in VCS).
+*.db
+*.db-shm
+*.db-wal
+*.db-shm.*
+*.db-wal.*
+*.sqlite
+*.sqlite3
+backups/
+# output/texts/ holds only on-demand `legiscanner export-text` output —
+# regenerable from the DB, so ignored.
+output/texts/*
+!output/texts/.gitkeep
+.cache/
+# Your tracked-bill list is working data; config/bills.example.json shows the format.
+config/bills.json
+config/bills-search.json
+
+# Keep example files
+!config/bills.example.json
+
+# Logs
+*.log
+logs/
+
+# Test coverage
+htmlcov/
+.coverage
+.coverage.*
+.pytest_cache/
+
+# Claude Code session files
+.claude/
+
+# Documentation exports (optional - remove if you want to commit these)
+COMPANION_*.md
+CSV_EXPORT_FEATURE.md
+
+# Local one-off scripts and editor backups
+scratch/
+*.bak

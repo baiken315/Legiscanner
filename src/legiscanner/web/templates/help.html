@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+
+{% block title %}Help - Legiscanner{% endblock %}
+
+{% block content %}
+<header>
+    <div class="container">
+        <h1>Legiscanner</h1>
+        <div class="subtitle">Virginia Legislative Bill Tracker for Local Government</div>
+    </div>
+</header>
+
+<div class="container">
+    <div class="help-page" style="max-width: 800px; margin: 0 auto;">
+        <a href="/" style="color: var(--primary-light); text-decoration: none; font-size: 0.875rem;">&larr; Back to Bill List</a>
+
+        <h2 style="margin: 1.5rem 0 0.75rem; font-size: 1.25rem;">About Legiscanner</h2>
+        <p style="margin-bottom: 1.5rem; color: var(--text-muted);">
+            Legiscanner tracks Virginia General Assembly bills for local government review.
+            It discovers bills matching your organization's tracked topics, fetches full bill data
+            from the LegiScan API, and optionally auto-analyzes bills using a local AI model (Ollama).
+        </p>
+
+        <h3 style="margin: 1.5rem 0 0.75rem;">Pipeline Controls</h3>
+
+        <div class="help-card" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+            <h4 style="margin-bottom: 0.5rem;">&uarr; Smart Update</h4>
+            <p style="font-size: 0.875rem; color: var(--text-muted);">
+                Re-fetches only bills whose data has changed since the last pull, using LegiScan's
+                change_hash to detect updates. Quick and efficient. Ideal for daily or weekly checks.
+            </p>
+        </div>
+
+        <div class="help-card" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+            <h4 style="margin-bottom: 0.5rem;">&rarr; Full Refresh</h4>
+            <p style="font-size: 0.875rem; color: var(--text-muted);">
+                Re-fetches <strong>all</strong> tracked bills from LegiScan, regardless of changes.
+                Use if data seems out of sync or texts need refreshing. Slower, uses more API calls.
+            </p>
+        </div>
+
+        <div class="help-card" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+            <h4 style="margin-bottom: 0.5rem;">&starf; Auto-tag New</h4>
+            <p style="font-size: 0.875rem; color: var(--text-muted);">
+                Sends unanalyzed bills to the local AI model (Ollama) for topic tagging, impact
+                scoring, and relevance reasoning. Only tags new unanalyzed bills. Requires running Ollama.
+            </p>
+        </div>
+
+        <h3 style="margin: 1.5rem 0 0.75rem;">Filtering &amp; Sorting</h3>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+            <div class="help-card" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem;">
+                <h4 style="margin-bottom: 0.5rem;">Search</h4>
+                <p style="font-size: 0.8125rem; color: var(--text-muted);">
+                    Full-text search across bill numbers, titles, descriptions, and AI analysis.
+                    Type to filter in real time.
+                </p>
+            </div>
+            <div class="help-card" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem;">
+                <h4 style="margin-bottom: 0.5rem;">Impact Levels</h4>
+                <p style="font-size: 0.8125rem; color: var(--text-muted);">
+                    Filter by AI impact score (1-5). Click badges to toggle. Default shows 2-5;
+                    check level 1 to see all bills including low-relevance ones.
+                </p>
+            </div>
+            <div class="help-card" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem;">
+                <h4 style="margin-bottom: 0.5rem;">Hide Low Relevance</h4>
+                <p style="font-size: 0.8125rem; color: var(--text-muted);">
+                    Hides impact-level 1 bills. Unsolved bills (no score yet) are shown regardless.
+                </p>
+            </div>
+            <div class="help-card" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem;">
+                <h4 style="margin-bottom: 0.5rem;">Watching Only</h4>
+                <p style="font-size: 0.8125rem; color: var(--text-muted);">
+                    Shows only bills you've marked as 'watching' (star icon).
+                </p>
+            </div>
+            <div class="help-card" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem;">
+                <h4 style="margin-bottom: 0.5rem;">Tags</h4>
+                <p style="font-size: 0.8125rem; color: var(--text-muted);">
+                    Filter by AI or manually added topic tags. Bills matching <em>any</em> selected tag are shown.
+                </p>
+            </div>
+            <div class="help-card" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem;">
+                <h4 style="margin-bottom: 0.5rem;">Bill Numbers</h4>
+                <p style="font-size: 0.8125rem; color: var(--text-muted);">
+                    Jump to specific bills by comma-separated numbers (e.g., HB1234, SB567).
+                </p>
+            </div>
+        </div>
+
+        <h3 style="margin: 1.5rem 0 0.75rem;">Bill Detail Modal</h3>
+        <p style="margin-bottom: 1rem;">Click any bill card to open a detailed view with these tabs:</p>
+        <ul style="margin-bottom: 1.5rem; padding-left: 1.5rem; font-size: 0.875rem;">
+            <li><strong>Overview</strong> &mdash; Summary, tracking info, sponsors, history, external links</li>
+            <li><strong>Bill Text</strong> &mdash; Full text with version selector and copy button</li>
+            <li><strong>Legislative Assistant</strong> &mdash; Chat with Ollama AI about bill implications, preemption risk, political dynamics. Responses can be added to bill notes.</li>
+            <li><strong>Lineage</strong> &mdash; Shown only when the bill is part of a cross-session lineage; a timeline of the same bill across sessions with a link to the full lineage.</li>
+        </ul>
+
+        <h3 style="margin: 1.5rem 0 0.75rem;">Bulk Actions</h3>
+        <ul style="margin-bottom: 1.5rem; padding-left: 1.5rem; font-size: 0.875rem;">
+            <li><strong>Watch All / Unwatch All</strong> &mdash; Toggle watching status in bulk</li>
+            <li><strong>Apply Tag / Create &amp; Tag</strong> &mdash; Add existing or new tags to all filtered bills</li>
+            <li><strong>Delete Tag</strong> &mdash; Remove a tag from all filtered bills</li>
+            <li><strong>Export CSV</strong> &mdash; Download filtered bills with chosen columns</li>
+        </ul>
+
+        <h3 style="margin: 1.5rem 0 0.75rem;">Impact Scores</h3>
+        <p style="margin-bottom: 0.5rem;">AI scores each bill 1-5 on significance for local government:</p>
+        <table style="width: 100%; font-size: 0.875rem; margin-bottom: 1.5rem; border-collapse: collapse;">
+            <tr style="background: #f8fafc;">
+                <td style="padding: 0.5rem; border-bottom: 1px solid var(--border); font-weight: 600;">Score</td>
+                <td style="padding: 0.5rem; border-bottom: 1px solid var(--border); font-weight: 600;">Color</td>
+                <td style="padding: 0.5rem; border-bottom: 1px solid var(--border); font-weight: 600;">Meaning</td>
+            </tr>
+            <tr>
+                <td style="padding: 0.5rem; border-bottom: 1px solid var(--border);">1</td>
+                <td style="padding: 0.5rem; border-bottom: 1px solid var(--border);"><span class="impact-badge impact-1">1</span></td>
+                <td style="padding: 0.5rem; border-bottom: 1px solid var(--border);">Minimal impact on local government</td>
+            </tr>
+            <tr>
+                <td style="padding: 0.5rem; border-bottom: 1px solid var(--border);">2</td>
+                <td style="padding: 0.5rem; border-bottom: 1px solid var(--border);"><span class="impact-badge impact-2">2</span></td>
+                <td style="padding: 0.5rem; border-bottom: 1px solid var(--border);">Minor impact</td>
+            </tr>
+            <tr>
+                <td style="padding: 0.5rem; border-bottom: 1px solid var(--border);">3</td>
+                <td style="padding: 0.5rem; border-bottom: 1px solid var(--border);"><span class="impact-badge impact-3">3</span></td>
+                <td style="padding: 0.5rem; border-bottom: 1px solid var(--border);">Moderate impact</td>
+            </tr>
+            <tr>
+                <td style="padding: 0.5rem; border-bottom: 1px solid var(--border);">4</td>
+                <td style="padding: 0.5rem; border-bottom: 1px solid var(--border);"><span class="impact-badge impact-4">4</span></td>
+                <td style="padding: 0.5rem; border-bottom: 1px solid var(--border);">High impact</td>
+            </tr>
+            <tr>
+                <td style="padding: 0.5rem;">5</td>
+                <td style="padding: 0.5rem;"><span class="impact-badge impact-5">5</span></td>
+                <td style="padding: 0.5rem;">Critical impact</td>
+            </tr>
+        </table>
+
+        <h3 style="margin: 1.5rem 0 0.75rem;">Companion Bills</h3>
+        <p style="margin-bottom: 1.5rem;">
+            Legiscanner auto-detects companion bills (HB/SB pairs with similar titles)
+            <em>within</em> a session. A &d8; icon indicates companion bills. Click links in the
+            detail modal to view.
+        </p>
+
+        <h3 style="margin: 1.5rem 0 0.75rem;">Bill Lineages (Cross-Session)</h3>
+        <div class="help-card" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+            <p style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+                A <strong>lineage</strong> groups the same (or same-subject) bill as it is re-introduced
+                across legislative sessions &mdash; the cross-session counterpart to companion bills.
+                Lineages are detected from cross-session title similarity and shared LegiScan bill IDs,
+                and re-computed with:
+            </p>
+            <pre style="background: #f8fafc; border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem 0.75rem; font-size: 0.8125rem; overflow-x: auto; margin-bottom: 0.5rem;">legiscanner link-lineages --db legiscanner.db</pre>
+            <ul style="margin: 0; padding-left: 1.5rem; font-size: 0.8125rem; color: var(--text-muted);">
+                <li><strong>Lineages</strong> in the header &rarr; <a href="/lineage" style="color: var(--primary-light);">/lineage</a> lists every lineage; click one to see how it evolved session over session.</li>
+                <li><strong>&#8635; indicator</strong> on a bill card &mdash; the bill is in a multi-bill lineage; click it to open the lineage timeline.</li>
+                <li><strong>Lineage tab</strong> in the bill detail modal &mdash; timeline of the bill's cross-session history.</li>
+            </ul>
+            <p style="font-size: 0.8125rem; color: var(--text-muted); margin-top: 0.5rem; margin-bottom: 0;">
+                Lineages only appear once the database holds bills from more than one session.
+            </p>
+        </div>
+
+        <h3 style="margin: 1.5rem 0 0.75rem;">Sessions</h3>
+        <p style="margin-bottom: 1rem; font-size: 0.875rem; color: var(--text-muted);">
+            One database spans every legislative session you track. The <strong>session switcher</strong>
+            at the top of the bill list lets you browse any session (and set one as the active default for
+            pipeline runs). The <code>--session</code> flag on CLI commands
+            (<code>discover</code>, <code>sync-session</code>, <code>autotag</code>,
+            <code>export-text</code>, <code>link-companions</code>) targets a specific session instead of
+            the active one. Use <code>legiscanner sessions-local</code> to list the sessions in your
+            database.
+        </p>
+
+        <h3 style="margin: 1.5rem 0 0.75rem;">Current Session Data</h3>
+        <div class="help-card" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem;">
+            <table style="width: 100%; font-size: 0.875rem;">
+                <tr><td style="padding: 0.375rem 0; color: var(--text-muted);">Session:</td><td style="padding: 0.375rem 0;"><strong>{{ session_name }} ({{ session_year }})</strong></td></tr>
+                <tr><td style="padding: 0.375rem 0; color: var(--text-muted);">Bills tracked:</td><td style="padding: 0.375rem 0;"><strong>{{ bill_count }}</strong></td></tr>
+                <tr><td style="padding: 0.375rem 0; color: var(--text-muted);">Cross-session lineages:</td><td style="padding: 0.375rem 0;"><a href="/lineage" style="color: var(--primary-light);"><strong>{{ lineage_count }}</strong></a></td></tr>
+                <tr><td style="padding: 0.375rem 0; color: var(--text-muted);">Sessions in database:</td><td style="padding: 0.375rem 0;"><strong>{{ session_count }}</strong></td></tr>
+                <tr><td style="padding: 0.375rem 0; color: var(--text-muted);">Topics monitored:</td><td style="padding: 0.375rem 0;"><strong>{{ topic_count }}</strong></td></tr>
+                <tr><td style="padding: 0.375rem 0; color: var(--text-muted);">Outcome areas:</td><td style="padding: 0.375rem 0;"><strong>{{ outcome_area_count }}</strong></td></tr>
+                <tr><td style="padding: 0.375rem 0; color: var(--text-muted);">AI Model:</td><td style="padding: 0.375rem 0;"><strong>{{ model_name }}</strong></td></tr>
+            </table>
+        </div>
+
+        <h3 style="margin: 1.5rem 0 0.75rem;">Data Sources</h3>
+        <ul style="font-size: 0.875rem; margin-bottom: 1.5rem;">
+            <li><a href="https://legiscan.com/VA" target="_blank" style="color: var(--primary-light);">LegiScan</a> &mdash; Primary data source for bill metadata and text</li>
+            <li><a href="https://lis.virginia.gov/" target="_blank" style="color: var(--primary-light);">Virginia LIS</a> &mdash; Official Virginia legislative information</li>
+            <li><a href="https://ollama.ai/" target="_blank" style="color: var(--primary-light);">Ollama</a> &mdash; Local AI model for analysis</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}

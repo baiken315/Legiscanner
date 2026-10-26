@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}Bill Lineages - Legiscanner{% endblock %}
+
+{% block content %}
+<header>
+    <div class="container">
+        <a href="/" style="color: white; opacity: 0.7; text-decoration: none; font-size: 0.875rem;">&larr; All bills</a>
+        <h1 style="display: inline-block; margin-left: 0.75rem;">Cross-Session Bill Lineages</h1>
+    </div>
+</header>
+
+<div class="container">
+    {% include "partials/session_switcher.html" %}
+
+    <p style="color: var(--text-muted); margin-bottom: 1.25rem; max-width: 72ch;">
+        A <strong>lineage</strong> groups the bills that are the same (or same-subject) legislation
+        re-introduced across legislative sessions. Run
+        <code>legiscanner link-lineages</code> to (re)compute them from cross-session title similarity.
+        Click a lineage to see how it evolved session over session.
+    </p>
+
+    {% if lineages %}
+    <div class="bill-grid" style="grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));">
+        {% for ln in lineages %}
+        <div class="bill-card" style="cursor: pointer;" onclick="location.href='/lineage/{{ ln.id }}'">
+            <div class="bill-card-header">
+                <span class="bill-number">Lineage #{{ ln.id }}</span>
+                <span class="impact-badge impact-3" title="Bills in lineage">{{ ln.member_count }} bills</span>
+            </div>
+            <div class="bill-card-body">
+                <div class="bill-title">{{ ln.name or '(unnamed lineage)' }}</div>
+                <div class="bill-meta">
+                    <span>{{ ln.session_count }} session{{ 's' if ln.session_count != 1 else '' }}</span>
+                    &middot;
+                    <span>{{ ln.created_at[:10] }}</span>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <h3>No lineages yet</h3>
+        <p>Run <code>legiscanner link-lineages</code> to detect cross-session bill lineages, then reload this page.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

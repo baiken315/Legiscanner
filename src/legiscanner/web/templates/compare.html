@@ -1,0 +1,460 @@
+{% extends "base.html" %}
+
+{% block title %}Compare Versions - {{ bill.bill_number }} - Legiscanner{% endblock %}
+
+{% block content %}
+<header>
+    <div class="container">
+        <a href="/" style="color: white; opacity: 0.7; text-decoration: none; font-size: 0.875rem;">&larr; All bills</a>
+        <h1 style="display: inline-block; margin-left: 0.75rem;">{{ bill.bill_number }} &mdash; Compare Versions</h1>
+        <span style="color: white; opacity: 0.9; font-size: 1rem; margin-left: 0.75rem;">{{ bill.title }}</span>
+    </div>
+</header>
+
+<div class="container">
+    {% if bill.texts|length < 2 %}
+    <div class="modal-section">
+        <p>This bill has only one recorded text version, so there is nothing to compare yet.</p>
+        <p style="margin-top: 0.5rem;"><a href="/" style="color: var(--primary-light);">&larr; Back to all bills</a></p>
+    </div>
+    {% else %}
+
+    <div id="compare-data" style="display: none;">{{ bill.texts|tojson }}</div>
+
+    <!-- Version selectors -->
+    <div class="modal-section cmp-selectors">
+        <div class="cmp-version-box">
+            <label>Version 1 (base)</label>
+            <select id="cmp-v1" class="cmp-select"></select>
+            <div id="cmp-v1-meta" class="cmp-meta"></div>
+        </div>
+        <button id="cmp-swap" class="btn btn-sm btn-secondary" title="Swap versions">&#8646; Swap</button>
+        <div class="cmp-version-box">
+            <label>Version 2 (compare)</label>
+            <select id="cmp-v2" class="cmp-select"></select>
+            <div id="cmp-v2-meta" class="cmp-meta"></div>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div id="cmp-stats" class="cmp-stats" style="display: none;"></div>
+
+    <!-- Controls -->
+    <div class="cmp-controls">
+        <div class="cmp-filter-group">
+            <button class="cmp-chip active" data-filter="all">All</button>
+            <button class="cmp-chip" data-filter="added">Added</button>
+            <button class="cmp-chip" data-filter="removed">Removed</button>
+            <button class="cmp-chip" data-filter="modified">Modified</button>
+        </div>
+        <label class="cmp-check"><input type="checkbox" id="cmp-hide-ws"> Hide whitespace</label>
+        <div class="cmp-filter-group">
+            <button class="cmp-chip active" data-view="split">Split</button>
+            <button class="cmp-chip" data-view="unified">Unified</button>
+        </div>
+        <div class="cmp-nav">
+            <button id="cmp-prev" class="btn btn-sm btn-secondary" title="Previous change (P)">&#9650; Prev</button>
+            <span id="cmp-counter" class="cmp-counter">0/0</span>
+            <button id="cmp-next" class="btn btn-sm btn-secondary" title="Next change (N)">&#9660; Next</button>
+        </div>
+        <div class="cmp-search">
+            <input type="text" id="cmp-search-input" placeholder="Search changes ( / )">
+            <span id="cmp-search-count" class="cmp-counter"></span>
+        </div>
+        <span class="cmp-shortcut-hint">Shortcuts: <b>N</b>/<b>P</b> next/prev change, <b>/</b> search</span>
+    </div>
+
+    <!-- Diff -->
+    <div id="cmp-diff" class="cmp-diff" style="display: none;">
+        <div class="cmp-diff-loading">Loading diff&hellip;</div>
+    </div>
+
+    {% endif %}
+</div>
+
+<style>
+    .cmp-selectors { display: flex; gap: 1rem; align-items: flex-start; flex-wrap: wrap; margin-bottom: 1rem; }
+    .cmp-version-box { flex: 1 1 280px; }
+    .cmp-version-box label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.03em; }
+    .cmp-select { width: 100%; font-size: 0.875rem; padding: 0.5rem 0.6rem; border: 1px solid var(--border); border-radius: 4px; background: var(--bg-card); }
+    .cmp-meta { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.3rem; }
+    #cmp-swap { margin-top: 1.4rem; }
+
+    .cmp-stats { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1rem; }
+    .cmp-stat { background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem 0.9rem; min-width: 110px; }
+    .cmp-stat .n { font-size: 1.3rem; font-weight: 700; }
+    .cmp-stat .l { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em; }
+    .cmp-stat.added .n { color: var(--success); }
+    .cmp-stat.removed .n { color: var(--danger); }
+    .cmp-stat.modified .n { color: var(--primary-light); }
+    .cmp-stat.words .n { color: var(--warning); }
+
+    .cmp-controls { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; margin-bottom: 1rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; padding: 0.6rem 0.9rem; }
+    .cmp-filter-group { display: flex; gap: 0.25rem; }
+    .cmp-chip { border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 0.8rem; padding: 0.3rem 0.7rem; border-radius: 999px; cursor: pointer; transition: all 0.15s; }
+    .cmp-chip:hover { border-color: var(--primary-light); }
+    .cmp-chip.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .cmp-check { font-size: 0.8rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.3rem; }
+    .cmp-nav { display: flex; align-items: center; gap: 0.4rem; }
+    .cmp-counter { font-size: 0.8rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+    .cmp-search { display: flex; align-items: center; gap: 0.4rem; }
+    .cmp-search input { font-size: 0.8rem; padding: 0.3rem 0.6rem; border: 1px solid var(--border); border-radius: 4px; width: 180px; }
+    .cmp-shortcut-hint { font-size: 0.72rem; color: var(--text-muted); margin-left: auto; }
+
+    .cmp-diff { background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; overflow: auto; max-height: 75vh; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.8rem; line-height: 1.5; }
+    .cmp-diff-loading { padding: 2rem; text-align: center; color: var(--text-muted); }
+
+    .cmp-row { display: flex; border-bottom: 1px solid var(--border); }
+    .cmp-row:last-child { border-bottom: none; }
+    .cmp-gutter { width: 44px; min-width: 44px; text-align: right; padding: 0 0.5rem; color: var(--text-muted); user-select: none; background: var(--bg); border-right: 1px solid var(--border); }
+    .cmp-cell { flex: 1; padding: 0 0.6rem; white-space: pre-wrap; word-break: break-word; }
+    .cmp-row.unified .cmp-cell:first-of-type { border-right: 1px solid var(--border); }
+
+    .cmp-line-added { background: #e6ffed; }
+    .cmp-line-added .cmp-cell { color: #22863a; }
+    .cmp-line-added .cmp-gutter { background: #ccffd8; }
+    .cmp-line-removed { background: #ffeef0; }
+    .cmp-line-removed .cmp-cell { color: #cb2431; }
+    .cmp-line-removed .cmp-gutter { background: #ffd7d9; }
+    .cmp-line-modified-old { background: #fff8c5; }
+    .cmp-line-modified-old .cmp-cell { color: #735c0f; }
+    .cmp-line-modified-new { background: #e6ffed; }
+    .cmp-line-modified-new .cmp-cell { color: #22863a; }
+
+    .cmp-cell ins, .cmp-line-added ins { background: #abf2bc; text-decoration: none; border-radius: 2px; }
+    .cmp-cell del, .cmp-line-removed del { background: #ffb3b8; text-decoration: line-through; border-radius: 2px; }
+    .cmp-line-modified-old del { background: #ffd9a0; }
+
+    .cmp-row.cmp-hidden { display: none; }
+    .cmp-row.cmp-current { outline: 2px solid var(--primary-light); outline-offset: -2px; }
+
+    .cmp-row.cmp-search-hit .cmp-cell { box-shadow: inset 0 0 0 2px var(--warning); }
+</style>
+
+{% if bill.texts|length >= 2 %}
+<script>
+(function () {
+    const RAW_TEXTS = JSON.parse(document.getElementById('compare-data').textContent);
+    const BILL_ID = {{ bill.bill_id }};
+    const BILL_NUMBER = {{ bill.bill_number|tojson }};
+    const texts = RAW_TEXTS;
+
+    const state = {
+        v1: null,
+        v2: null,
+        ops: null,          // [{type: 'same'|'add'|'del'|'mod', a?, b?}]
+        filter: 'all',
+        view: 'split',
+        hideWs: false,
+        search: '',
+        searchHits: [],
+        searchIdx: 0,
+        changeIdx: 0,
+    };
+
+    const $ = (id) => document.getElementById(id);
+    const v1Sel = $('cmp-v1'), v2Sel = $('cmp-v2');
+
+    function label(t) {
+        return (t.version || 'Unknown') + (t.date ? ' \u2014 ' + t.date : '');
+    }
+    function meta(t) {
+        return (t.chars ? t.chars.toLocaleString() + ' chars' : 'no content') + (t.state_url ? ' \u00b7 <a href="' + t.state_url + '" target="_blank" style="color: var(--primary-light);">view original</a>' : '');
+    }
+    function esc(s) {
+        const d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+    }
+
+    // ---- selectors ----
+    function buildSelect(sel, defId, otherSel, otherId) {
+        sel.innerHTML = '';
+        texts.forEach((t) => {
+            const o = document.createElement('option');
+            o.value = t.id;
+            o.textContent = label(t);
+            sel.appendChild(o);
+        });
+        sel.value = String(defId);
+    }
+
+    buildSelect(v1Sel, texts[0].id);
+    buildSelect(v2Sel, texts[texts.length - 1].id);
+
+    function syncSel(other, val) {
+        if (String(other.value) === String(val)) other.value = String(val === texts[0].id ? texts[1].id : texts[0].id);
+    }
+    v1Sel.addEventListener('change', () => { loadDiff(); });
+    v2Sel.addEventListener('change', () => { loadDiff(); });
+    $('cmp-swap').addEventListener('click', () => {
+        const a = v1Sel.value; v1Sel.value = v2Sel.value; v2Sel.value = a;
+        loadDiff();
+    });
+
+    // ---- diff engine (LCS + run merging + word-level inline diff) ----
+    function wordDiff(a, b) {
+        const aw = a.split(/(\s+)/), bw = b.split(/(\s+)/);
+        const n = aw.length, m = bw.length;
+        const dp = Array.from({ length: n + 1 }, () => new Int32Array(m + 1));
+        for (let i = n - 1; i >= 0; i--)
+            for (let j = m - 1; j >= 0; j--)
+                dp[i][j] = aw[i] === bw[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+        const out = [];
+        let i = 0, j = 0;
+        while (i < n && j < m) {
+            if (aw[i] === bw[j]) { out.push({ t: 's', x: aw[i] }); i++; j++; }
+            else if (dp[i + 1][j] >= dp[i][j + 1]) { out.push({ t: 'd', x: aw[i] }); i++; }
+            else { out.push({ t: 'a', x: bw[j] }); j++; }
+        }
+        while (i < n) out.push({ t: 'd', x: aw[i++] });
+        while (j < m) out.push({ t: 'a', x: bw[j++] });
+        return out;
+    }
+
+    function lineDiff(a, b) {
+        const n = a.length, m = b.length;
+        const dp = Array.from({ length: n + 1 }, () => new Int32Array(m + 1));
+        for (let i = n - 1; i >= 0; i--)
+            for (let j = m - 1; j >= 0; j--)
+                dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+        const raw = [];
+        let i = 0, j = 0;
+        while (i < n && j < m) {
+            if (a[i] === b[j]) { raw.push({ t: 's', a: a[i], b: b[j] }); i++; j++; }
+            else if (dp[i + 1][j] >= dp[i][j + 1]) { raw.push({ t: 'd', a: a[i] }); i++; }
+            else { raw.push({ t: 'a', b: b[j] }); j++; }
+        }
+        while (i < n) raw.push({ t: 'd', a: a[i++] });
+        while (j < m) raw.push({ t: 'a', b: b[j++] });
+
+        // merge adjacent del/add runs into 'mod' pairs
+        const ops = [];
+        let k = 0;
+        while (k < raw.length) {
+            if (raw[k].t === 's') { ops.push(raw[k]); k++; continue; }
+            const dels = [], adds = [];
+            while (k < raw.length && raw[k].t === 'd') { dels.push(raw[k++]); }
+            while (k < raw.length && raw[k].t === 'a') { adds.push(raw[k++]); }
+            if (dels.length && adds.length) {
+                const pairs = Math.min(dels.length, adds.length);
+                for (let p = 0; p < pairs; p++)
+                    ops.push({ t: 'mod', a: dels[p].a, b: adds[p].b, inline: wordDiff(dels[p].a, adds[p].b) });
+                for (let p = pairs; p < dels.length; p++) ops.push({ t: 'd', a: dels[p].a });
+                for (let p = pairs; p < adds.length; p++) ops.push({ t: 'a', b: adds[p].b });
+            } else {
+                dels.forEach((d) => ops.push(d));
+                adds.forEach((a) => ops.push(a));
+            }
+        }
+        return ops;
+    }
+
+    // ---- rendering ----
+    function wsOnly(s) { return /^\s*$/.test(s); }
+
+    function cellHtml(op) {
+        if (op.t === 's') return esc(op.a);
+        if (op.t === 'a') return '<ins>' + esc(op.b) + '</ins>';
+        if (op.t === 'd') return '<del>' + esc(op.a) + '</del>';
+        // mod: inline word diff
+        let oldH = '', newH = '';
+        op.inline.forEach((w) => {
+            if (w.t === 's') { oldH += esc(w.x); newH += esc(w.x); }
+            else if (w.t === 'd') oldH += '<del>' + esc(w.x) + '</del>';
+            else newH += '<ins>' + esc(w.x) + '</ins>';
+        });
+        return { old: oldH, new: newH };
+    }
+
+    function renderAll() {
+        const diff = $('cmp-diff');
+        diff.innerHTML = '';
+        state.changeCount = 0;
+        state.searchHits = [];
+
+        const frag = document.createDocumentFragment();
+        let an = 0, bn = 0;
+
+        state.ops.forEach((op) => {
+            const hide = (state.filter !== 'all' && op.t !== state.filter);
+            const ws = state.hideWs && (
+                (op.t === 's' && wsOnly(op.a)) ||
+                (op.t === 'd' && wsOnly(op.a)) ||
+                (op.t === 'a' && wsOnly(op.b)) ||
+                (op.t === 'mod' && (wsOnly(op.a) || wsOnly(op.b)))
+            );
+            if (ws) return;
+
+            const row = document.createElement('div');
+            row.className = 'cmp-row ' + state.view;
+
+            if (state.view === 'split') {
+                const hasA = op.t !== 'a';
+                const hasB = op.t !== 'd';
+                const gA = document.createElement('div'); gA.className = 'cmp-gutter';
+                const cA = document.createElement('div'); cA.className = 'cmp-cell';
+                const gB = document.createElement('div'); gB.className = 'cmp-gutter';
+                const cB = document.createElement('div'); cB.className = 'cmp-cell';
+
+                if (op.t === 's') {
+                    gA.textContent = ++an; gB.textContent = ++bn;
+                    cA.innerHTML = esc(op.a); cB.innerHTML = esc(op.b);
+                } else if (op.t === 'a') {
+                    gB.textContent = ++bn;
+                    cB.innerHTML = '<ins>' + esc(op.b) + '</ins>';
+                } else if (op.t === 'd') {
+                    gA.textContent = ++an;
+                    cA.innerHTML = '<del>' + esc(op.a) + '</del>';
+                } else {
+                    gA.textContent = ++an; gB.textContent = ++bn;
+                    const ch = cellHtml(op); cA.innerHTML = ch.old; cB.innerHTML = ch.new;
+                }
+                if (op.t === 'a') { row.classList.add('cmp-line-added'); gA.style.visibility = 'hidden'; }
+                else if (op.t === 'd') { row.classList.add('cmp-line-removed'); gB.style.visibility = 'hidden'; }
+                row.append(gA, cA, gB, cB);
+            } else {
+                const c = document.createElement('div'); c.className = 'cmp-cell';
+                if (op.t === 's') { bn++; c.textContent = '  ' + op.b; }
+                else if (op.t === 'a') { bn++; row.classList.add('cmp-line-added'); c.innerHTML = '+ <ins>' + esc(op.b) + '</ins>'; }
+                else if (op.t === 'd') { an++; row.classList.add('cmp-line-removed'); c.innerHTML = '- <del>' + esc(op.a) + '</del>'; }
+                else { an++; bn++; row.classList.add('cmp-line-modified'); const ch = cellHtml(op); c.innerHTML = '~ ' + ch.new; }
+                row.append(c);
+            }
+
+            if (op.t !== 's') {
+                row.dataset.change = String(state.changeCount);
+                state.changeCount++;
+            }
+            if (state.search &&
+                ((op.a || '').toLowerCase().includes(state.search) || (op.b || '').toLowerCase().includes(state.search))) {
+                row.classList.add('cmp-search-hit');
+                state.searchHits.push(row);
+            }
+            if (hide) row.classList.add('cmp-hidden');
+            frag.appendChild(row);
+        });
+
+        diff.appendChild(frag);
+        diff.style.display = 'block';
+        updateStats();
+        updateCounter();
+        scrollToChange(0);
+    }
+
+    function updateStats() {
+        let added = 0, removed = 0, modified = 0;
+        state.ops.forEach((op) => {
+            if (op.t === 'a') added++;
+            else if (op.t === 'd') removed++;
+            else if (op.t === 'mod') modified++;
+        });
+        // words changed: count inline d/a tokens in mod ops + full add/del lines
+        let words = 0;
+        state.ops.forEach((op) => {
+            if (op.t === 'a') words += op.b.trim() ? op.b.trim().split(/\s+/).length : 0;
+            else if (op.t === 'd') words += op.a.trim() ? op.a.trim().split(/\s+/).length : 0;
+            else if (op.t === 'mod') op.inline.forEach((w) => { if (w.t !== 's' && w.x.trim()) words++; });
+        });
+        $('cmp-stats').style.display = 'flex';
+        $('cmp-stats').innerHTML =
+            stat(added, 'Lines added', 'added') +
+            stat(removed, 'Lines removed', 'removed') +
+            stat(modified, 'Lines modified', 'modified') +
+            stat(words, 'Words changed', 'words');
+    }
+    function stat(n, l, c) {
+        return '<div class="cmp-stat ' + c + '"><div class="n">' + n + '</div><div class="l">' + l + '</div></div>';
+    }
+
+    function changeRows() {
+        return Array.from($('cmp-diff').querySelectorAll('[data-change]'));
+    }
+    function visibleChangeRows() {
+        return changeRows().filter((r) => !r.classList.contains('cmp-hidden'));
+    }
+    function updateCounter() {
+        const total = state.changeCount;
+        $('cmp-counter').textContent = (state.changeIdx + 1 > total ? total : state.changeIdx + 1) + '/' + total;
+        $('cmp-search-count').textContent = state.searchHits.length ? (state.searchIdx + 1) + '/' + state.searchHits.length : '';
+    }
+    function clearCurrent() {
+        const c = $('cmp-diff').querySelector('.cmp-current');
+        if (c) c.classList.remove('cmp-current');
+    }
+    function scrollToChange(i) {
+        const rows = visibleChangeRows();
+        if (!rows.length) { updateCounter(); return; }
+        state.changeIdx = Math.max(0, Math.min(i, rows.length - 1));
+        clearCurrent();
+        const row = rows[state.changeIdx];
+        row.classList.add('cmp-current');
+        row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        updateCounter();
+    }
+
+    // ---- data load ----
+    async function loadDiff() {
+        const v1 = parseInt(v1Sel.value, 10);
+        const v2 = parseInt(v2Sel.value, 10);
+        state.v1 = v1; state.v2 = v2;
+        state.changeIdx = 0;
+        const t1 = texts.find((t) => t.id === v1);
+        const t2 = texts.find((t) => t.id === v2);
+        $('cmp-v1-meta').innerHTML = meta(t1);
+        $('cmp-v2-meta').innerHTML = meta(t2);
+        $('cmp-stats').style.display = 'none';
+        $('cmp-diff').style.display = 'block';
+        $('cmp-diff').innerHTML = '<div class="cmp-diff-loading">Loading diff&hellip;</div>';
+        try {
+            const r = await fetch(`/bill/${encodeURIComponent(BILL_NUMBER)}/compare/diff?v1=${v1}&v2=${v2}`);
+            if (!r.ok) throw new Error((await r.json()).detail || 'diff failed');
+            const data = await r.json();
+            state.ops = lineDiff(data.v1.lines, data.v2.lines);
+            renderAll();
+        } catch (e) {
+            $('cmp-diff').innerHTML = '<div class="cmp-diff-loading">Error: ' + esc(e.message) + '</div>';
+        }
+    }
+
+    // ---- controls ----
+    document.querySelectorAll('.cmp-chip[data-filter]').forEach((b) =>
+        b.addEventListener('click', () => {
+            document.querySelectorAll('.cmp-chip[data-filter]').forEach((x) => x.classList.remove('active'));
+            b.classList.add('active');
+            state.filter = b.dataset.filter;
+            renderAll();
+        }));
+    document.querySelectorAll('.cmp-chip[data-view]').forEach((b) =>
+        b.addEventListener('click', () => {
+            document.querySelectorAll('.cmp-chip[data-view]').forEach((x) => x.classList.remove('active'));
+            b.classList.add('active');
+            state.view = b.dataset.view;
+            renderAll();
+        }));
+    $('cmp-hide-ws').addEventListener('change', () => { state.hideWs = $('cmp-hide-ws').checked; renderAll(); });
+    $('cmp-prev').addEventListener('click', () => scrollToChange(state.changeIdx - 1));
+    $('cmp-next').addEventListener('click', () => scrollToChange(state.changeIdx + 1));
+
+    const searchInput = $('cmp-search-input');
+    searchInput.addEventListener('input', () => {
+        state.search = searchInput.value.trim().toLowerCase();
+        state.searchIdx = 0;
+        renderAll();
+    });
+
+    document.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') {
+            if (e.key === 'Escape') e.target.blur();
+            return;
+        }
+        if (e.key === 'n' || e.key === 'N') { e.preventDefault(); scrollToChange(state.changeIdx + 1); }
+        else if (e.key === 'p' || e.key === 'P') { e.preventDefault(); scrollToChange(state.changeIdx - 1); }
+        else if (e.key === '/') { e.preventDefault(); searchInput.focus(); }
+    });
+
+    loadDiff();
+})();
+</script>
+{% endif %}
+{% endblock %}

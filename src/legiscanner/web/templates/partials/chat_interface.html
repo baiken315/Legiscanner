@@ -1,0 +1,24 @@
+<div class="chat-container">
+    <div class="chat-messages" id="chat-messages-{{ bill.bill_number }}">
+        <!-- Chat messages will appear here -->
+    </div>
+
+    <div class="suggested-prompts">
+        <div class="suggested-prompts-label">Suggested questions:</div>
+        {% for prompt in suggested_prompts %}
+        <button class="suggested-prompt-btn"
+                onclick="sendSuggestedPrompt('{{ bill.bill_number }}', '{{ prompt }}')">
+            {{ prompt[:40] }}{% if prompt|length > 40 %}...{% endif %}
+        </button>
+        {% endfor %}
+    </div>
+
+    <div class="chat-input-area">
+        <input type="text" id="chat-input-{{ bill.bill_number }}"
+               placeholder="Ask about this bill..."
+               onkeydown="if(event.key === 'Enter') sendChatMessage('{{ bill.bill_number }}')">
+        <button class="btn btn-primary" onclick="sendChatMessage('{{ bill.bill_number }}')">
+            Send
+        </button>
+    </div>
+</div>

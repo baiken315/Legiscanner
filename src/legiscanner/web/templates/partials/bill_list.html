@@ -1,0 +1,51 @@
+{% for bill in bills %}
+{% set tm = bill.tracking_metadata or {} %}
+{# tm.ai_impact = MAX(effective per-area score) across bill.outcome_scores, kept in
+   sync by a DB trigger — already accounts for any per-area user overrides. #}
+{% set impact = tm.ai_impact if tm.ai_impact is defined and tm.ai_impact else 3 %}
+{% set watching = tm.watching or false %}
+{% set tags = tm.ai_tags or tm.tags or [] %}
+{% set user_tags = tm.user_tags or [] %}
+{% set all_tags = tags + user_tags %}
+<div class="bill-card {{ 'watching' if watching else '' }}" data-bill-number="{{ bill.bill_number }}">
+    <div class="bill-card-header">
+        <span class="bill-number">
+            {% if watching %}<span class="watch-indicator" title="Watching">&#9733;</span>{% endif %}
+            {{ bill.bill_number }}
+            {% if bill.companion_bills and bill.companion_bills|length > 0 %}
+            <span class="companion-indicator" title="Has {{ bill.companion_bills|length }} companion bill{{ 's' if bill.companion_bills|length != 1 else '' }}: {{ bill.companion_bills|join(', ') }}">🔗</span>
+            {% endif %}
+            {% if bill.lineage_members and bill.lineage_members|length > 1 %}
+            <a href="/bill/{{ bill.bill_number }}/lineage" class="lineage-indicator"
+               onclick="event.stopPropagation()"
+               title="Part of a cross-session lineage ({{ bill.lineage_members|length }} bills) — view lineage">↻</a>
+            {% endif %}
+        </span>
+        <span class="impact-badge impact-{{ impact }}">{{ impact }}</span>
+    </div>
+    <div class="bill-card-body">
+        <div class="bill-title">{{ bill.title or 'No title' }}</div>
+        <div class="bill-meta">
+            {% if bill.last_action_date %}
+            <span>{{ bill.last_action_date }}</span> &middot;
+            {% endif %}
+            <span>{{ (bill.sponsors or [])|length }} sponsor{{ 's' if (bill.sponsors or [])|length != 1 else '' }}</span>
+        </div>
+        {% if all_tags %}
+        <div class="tags">
+            {% for tag in all_tags[:5] %}
+            <span class="tag {{ 'user-tag' if tag in user_tags else '' }}">{{ tag }}</span>
+            {% endfor %}
+            {% if all_tags|length > 5 %}
+            <span class="tag">+{{ all_tags|length - 5 }}</span>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% else %}
+<div class="empty-state">
+    <h3>No bills found</h3>
+    <p>Try adjusting your filters or search query.</p>
+</div>
+{% endfor %}

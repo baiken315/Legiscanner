@@ -1,0 +1,13 @@
+{% if role == 'assistant' %}
+<div class="chat-message {{ role }}">
+    <div class="markdown-body"></div>
+    <script type="text/plain" class="markdown-source">{{ content }}</script>
+    <div class="chat-message-actions">
+        <button type="button" class="add-to-notes-btn" onclick="addChatMessageToNotes(this)">+ Add to Notes</button>
+    </div>
+</div>
+{% else %}
+<div class="chat-message {{ role }}">
+    <pre>{{ content }}</pre>
+</div>
+{% endif %}

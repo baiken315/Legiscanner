@@ -1,0 +1,379 @@
+<!-- Tabs -->
+<div class="tabs">
+    <button class="tab active" data-tab="tab-overview" onclick="switchTab('tab-overview')">Overview</button>
+    <button class="tab" data-tab="tab-text" onclick="switchTab('tab-text')">Bill Text</button>
+    {% if bill.lineage_members and bill.lineage_members|length > 1 %}
+    <button class="tab" data-tab="tab-lineage" onclick="switchTab('tab-lineage')">Lineage ({{ bill.lineage_members|length }})</button>
+    {% endif %}
+    <button class="tab" data-tab="tab-assistant" onclick="switchTab('tab-assistant')">Legislative Assistant</button>
+</div>
+
+<!-- Overview Tab -->
+<div id="tab-overview" class="tab-content active">
+    <div class="modal-section">
+        <h3>Summary</h3>
+        <p>{{ bill.description or 'No description available.' }}</p>
+    </div>
+
+    <div class="modal-section" id="tracking-info">
+        {% include "partials/tracking_info.html" %}
+    </div>
+
+    {% if bill.companion_bills and bill.companion_bills|length > 0 %}
+    <div class="modal-section" style="background: var(--bg-secondary); border-left: 3px solid var(--primary); padding: 1rem;">
+        <h3 style="margin-top: 0;">
+            🔗 Companion Bills ({{ bill.companion_bills|length }})
+        </h3>
+        <p style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+            These {{ 'House' if bill.bill_number.startswith('S') else 'Senate' }} bills have nearly identical titles and likely contain the same or very similar legislation.
+        </p>
+        <div class="companion-bills-list">
+            {% for companion in bill.companion_bills %}
+            <a href="#"
+               onclick="loadBillDetail('{{ companion }}'); return false;"
+               class="companion-bill-link"
+               style="display: inline-block; margin: 0.25rem 0.5rem 0.25rem 0; padding: 0.5rem 0.75rem; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; text-decoration: none; color: var(--primary); font-weight: 500; transition: all 0.2s;">
+                {{ companion }}
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="modal-section">
+        <h3>Sponsors ({{ (bill.sponsors or [])|length }})</h3>
+        <div class="sponsor-list">
+            {% for sponsor in bill.sponsors or [] %}
+            <span class="sponsor-badge">
+                <span class="party {{ sponsor.party }}">{{ sponsor.party }}</span>
+                {{ sponsor.name }}
+                {% if sponsor.district %}<small>({{ sponsor.district }})</small>{% endif %}
+            </span>
+            {% else %}
+            <span>No sponsors listed</span>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="modal-section">
+        <h3>History</h3>
+        {% if bill.history %}
+        <table style="width: 100%; font-size: 0.875rem;">
+            {% for event in bill.history[-5:]|reverse %}
+            <tr>
+                <td style="white-space: nowrap; padding: 0.25rem 0.5rem 0.25rem 0; color: var(--text-muted);">{{ event.date }}</td>
+                <td style="padding: 0.25rem 0;">{{ event.action }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+        {% if bill.history|length > 5 %}
+        <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
+            Showing last 5 of {{ bill.history|length }} actions
+        </p>
+        {% endif %}
+        {% else %}
+        <p>No history available</p>
+        {% endif %}
+    </div>
+
+    <div class="modal-section">
+        <h3>Links</h3>
+        <div class="external-links">
+            {% if bill.legiscan_url %}
+            <a href="{{ bill.legiscan_url }}" target="_blank">View on LegiScan &rarr;</a>
+            {% endif %}
+            {% if bill.state_url %}
+            <a href="{{ bill.state_url }}" target="_blank">View on Virginia LIS &rarr;</a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Lineage Tab (cross-session) -->
+{% if bill.lineage_members and bill.lineage_members|length > 1 %}
+<div id="tab-lineage" class="tab-content">
+    <div class="modal-section">
+        <p style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 1rem;">
+            This bill is part of a <strong>cross-session lineage</strong> — the same (or same-subject)
+            legislation re-introduced across legislative sessions. Bill numbers repeat every session,
+            so these are distinct bills grouped by how the idea evolved. Newest session first.
+        </p>
+        <div class="lineage-timeline">
+            {% for m in bill.lineage_members %}
+            <div class="lineage-member {% if m.bill_number == bill.bill_number and m.session_id == (bill.session_id or 0) %}current{% endif %}">
+                <div class="lineage-member-year">{{ m.year }}</div>
+                <div class="lineage-member-body">
+                    <a href="#" onclick="loadBillDetail('{{ m.bill_number }}'); return false;"
+                       style="text-decoration: none; color: var(--primary); font-weight: 600;">
+                        {{ m.bill_number }}
+                    </a>
+                    <div class="lineage-member-title">{{ m.title or 'No title' }}</div>
+                    <div class="lineage-member-meta">
+                        {{ m.status or '—' }}{% if m.last_action_date %} · last action {{ m.last_action_date }}{% endif %}
+                    </div>
+                </div>
+                {% if m.link_reason %}
+                <span class="lineage-reason" title="How this bill was linked to the lineage">{{ m.link_reason }}{% if m.similarity %} · {{ '%.0f'|format(m.similarity * 100) }}%{% endif %}</span>
+                {% endif %}
+            </div>
+            {% if not loop.last %}
+            <div class="lineage-connector"></div>
+            {% endif %}
+            {% endfor %}
+        </div>
+        <div style="margin-top: 1rem;">
+            <a href="/bill/{{ bill.bill_number }}/lineage" target="_blank" class="btn btn-sm btn-primary">
+                &#128260; Compare across sessions
+            </a>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Bill Text Tab -->
+<div id="tab-text" class="tab-content">
+    <div class="modal-section">
+        {% if bill.texts %}
+        {% set active_text = bill.texts[0] %}
+
+        {% if bill.texts|length > 1 %}
+        <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; flex-wrap: wrap;">
+            <label style="font-size: 0.875rem; color: var(--text-muted);">Version:</label>
+            <select id="text-version-select-{{ bill.bill_number }}" onchange="switchTextVersion('{{ bill.bill_number }}')"
+                    style="font-size: 0.875rem; padding: 0.25rem 0.5rem; border: 1px solid var(--border); border-radius: 4px;">
+                {% for text in bill.texts %}
+                <option value="{{ loop.index0 }}">{{ text.version or 'Unknown' }}{% if text.date %} ({{ text.date }}){% endif %}</option>
+                {% endfor %}
+            </select>
+            <a href="/bill/{{ bill.bill_number }}/compare" target="_blank" style="font-size: 0.875rem; padding: 0.25rem 0.6rem; border: 1px solid var(--border); border-radius: 4px; color: var(--primary-light); text-decoration: none; font-weight: 500;" title="Open the version-comparison view">&#128260; Compare Versions</a> <button class="btn btn-sm btn-secondary" onclick="copyBillText('{{ bill.bill_number }}')">Copy Text</button>
+            {% if active_text.state_url %}
+            <a href="{{ active_text.state_url }}" target="_blank" style="font-size: 0.875rem;">View original &rarr;</a>
+            {% endif %}
+        </div>
+        {% else %}
+        <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; flex-wrap: wrap;">
+            <span style="font-size: 0.875rem; color: var(--text-muted);">
+                {{ active_text.version or 'Unknown' }}{% if active_text.date %} &middot; {{ active_text.date }}{% endif %}
+            </span>
+            <button class="btn btn-sm btn-secondary" onclick="copyBillText('{{ bill.bill_number }}')">Copy Text</button>
+            {% if active_text.state_url %}
+            <a href="{{ active_text.state_url }}" target="_blank" style="font-size: 0.875rem;">View original &rarr;</a>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% for text in bill.texts %}
+        <div id="text-version-{{ bill.bill_number }}-{{ loop.index0 }}"
+             class="bill-text-content"
+             style="{{ 'display:none;' if not loop.first else '' }}">
+            {% if text.content and text.content.strip().startswith('<') %}
+            <div class="bill-text-preview bill-text-html">{{ text.content | safe }}</div>
+            {% else %}
+            <div class="bill-text-preview">{{ text.content or 'No text content available.' }}</div>
+            {% endif %}
+        </div>
+        {% endfor %}
+
+        {% else %}
+        <p>No bill text available.</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Legislative Assistant Tab -->
+<div id="tab-assistant" class="tab-content">
+    <div class="modal-section">
+        <p style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 1rem;">
+            Ask questions about this bill's implications, political dynamics, or impact on local government.
+        </p>
+
+        <div class="chat-container">
+            <div class="chat-messages" id="chat-messages-{{ bill.bill_number }}">
+                <!-- Chat messages will appear here -->
+            </div>
+
+            <div class="suggested-prompts">
+                <div class="suggested-prompts-label">Suggested questions:</div>
+                <button class="suggested-prompt-btn" onclick="sendSuggestedPrompt('{{ bill.bill_number }}', 'What are the key implications for local government?')">
+                    Local gov implications
+                </button>
+                <button class="suggested-prompt-btn" onclick="sendSuggestedPrompt('{{ bill.bill_number }}', 'How might this affect housing supply or affordability?')">
+                    Housing impact
+                </button>
+                <button class="suggested-prompt-btn" onclick="sendSuggestedPrompt('{{ bill.bill_number }}', 'Could this preempt local authority? If so, how?')">
+                    Local preemption
+                </button>
+                <button class="suggested-prompt-btn" onclick="sendSuggestedPrompt('{{ bill.bill_number }}', 'Who are the likely supporters and opponents?')">
+                    Political dynamics
+                </button>
+            </div>
+
+            <div class="chat-input-area">
+                <input type="text" id="chat-input-{{ bill.bill_number }}"
+                       placeholder="Ask about this bill..."
+                       onkeydown="if(event.key === 'Enter') sendChatMessage('{{ bill.bill_number }}')">
+                <button class="btn btn-primary" onclick="sendChatMessage('{{ bill.bill_number }}')">
+                    <span class="htmx-indicator spinner"></span>
+                    Send
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function sendSuggestedPrompt(billNumber, prompt) {
+    document.getElementById(`chat-input-${billNumber}`).value = prompt;
+    sendChatMessage(billNumber);
+}
+
+function sendChatMessage(billNumber) {
+    const input = document.getElementById(`chat-input-${billNumber}`);
+    const message = input.value.trim();
+    if (!message) return;
+
+    const messagesContainer = document.getElementById(`chat-messages-${billNumber}`);
+
+    // Add user message
+    const userMsg = document.createElement('div');
+    userMsg.className = 'chat-message user';
+    userMsg.innerHTML = `<pre>${escapeHtml(message)}</pre>`;
+    messagesContainer.appendChild(userMsg);
+
+    // Clear input
+    input.value = '';
+
+    // Scroll to bottom
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+    // Add loading indicator
+    const loadingMsg = document.createElement('div');
+    loadingMsg.className = 'chat-message assistant';
+    loadingMsg.id = 'loading-msg';
+    loadingMsg.innerHTML = '<div class="spinner"></div> Thinking...';
+    messagesContainer.appendChild(loadingMsg);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+    // Send to server (ollama_url/model come from the session's DB config server-side)
+    fetch(`/bill/${billNumber}/chat`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            bill_number: billNumber,
+            message: message,
+        })
+    })
+    .then(response => response.text())
+    .then(html => {
+        // Remove loading indicator
+        const loading = document.getElementById('loading-msg');
+        if (loading) loading.remove();
+
+        // Add response
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = html;
+        const messageEl = tempDiv.firstElementChild;
+        messagesContainer.appendChild(messageEl);
+
+        // Render markdown for assistant replies. The raw source stays in the DOM
+        // (hidden, since <script type="text/plain"> never renders) so "Add to
+        // Notes" can read the original text later without re-deriving it from HTML.
+        const markdownEl = messageEl.querySelector('.markdown-body');
+        const markdownSource = messageEl.querySelector('.markdown-source');
+        // LLM output is untrusted (bill text can carry prompt injection), so the
+        // rendered markdown is sanitized; without DOMPurify, fall back to plain text.
+        if (markdownEl && markdownSource) {
+            if (window.marked && window.DOMPurify) {
+                markdownEl.innerHTML = DOMPurify.sanitize(marked.parse(markdownSource.textContent));
+            } else {
+                markdownEl.textContent = markdownSource.textContent;
+            }
+        }
+
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    })
+    .catch(error => {
+        // Remove loading indicator
+        const loading = document.getElementById('loading-msg');
+        if (loading) loading.remove();
+
+        // Add error message
+        const errorMsg = document.createElement('div');
+        errorMsg.className = 'chat-message error';
+        errorMsg.textContent = 'Error: ' + error.message;
+        messagesContainer.appendChild(errorMsg);
+    });
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function addChatMessageToNotes(button) {
+    const messageEl = button.closest('.chat-message');
+    const messagesContainer = messageEl.closest('.chat-messages');
+    const billNumber = messagesContainer.id.replace('chat-messages-', '');
+    const markdownSource = messageEl.querySelector('.markdown-source');
+    const text = markdownSource ? markdownSource.textContent : '';
+    if (!text.trim()) return;
+
+    button.disabled = true;
+    button.textContent = 'Adding...';
+
+    fetch(`/bill/${billNumber}/notes/append`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `text=${encodeURIComponent(text)}`,
+    })
+    .then(response => {
+        if (!response.ok) throw new Error('Failed to add to notes');
+        return response.text();
+    })
+    .then(html => {
+        // Refresh the Overview tab's tracking-info panel so the notes textarea
+        // reflects the addition even though we're on the Assistant tab.
+        const trackingInfo = document.getElementById('tracking-info');
+        if (trackingInfo) trackingInfo.innerHTML = html;
+
+        button.textContent = 'Added ✓';
+        setTimeout(() => {
+            button.textContent = '+ Add to Notes';
+            button.disabled = false;
+        }, 2000);
+    })
+    .catch(error => {
+        button.textContent = 'Failed';
+        button.disabled = false;
+        console.error('Add to notes failed:', error);
+    });
+}
+
+function switchTextVersion(billNumber) {
+    const select = document.getElementById(`text-version-select-${billNumber}`);
+    const idx = select.value;
+    document.querySelectorAll(`[id^="text-version-${billNumber}-"]`).forEach(el => {
+        el.style.display = 'none';
+    });
+    const target = document.getElementById(`text-version-${billNumber}-${idx}`);
+    if (target) target.style.display = '';
+}
+
+function copyBillText(billNumber) {
+    const select = document.getElementById(`text-version-select-${billNumber}`);
+    const idx = select ? select.value : '0';
+    const container = document.getElementById(`text-version-${billNumber}-${idx}`);
+    if (!container) return;
+    const textEl = container.querySelector('.bill-text-preview');
+    if (!textEl) return;
+    // Use innerText to get formatted text (preserves line breaks)
+    const text = textEl.innerText;
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = document.querySelector(`button[onclick="copyBillText('${billNumber}')"]`);
+        if (btn) { btn.textContent = 'Copied!'; setTimeout(() => btn.textContent = 'Copy Text', 2000); }
+    });
+}
+</script>

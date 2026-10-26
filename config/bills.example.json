@@ -1,0 +1,37 @@
+{
+  "session": "2025 Regular Session",
+  "state": "VA",
+  "bills": [
+    {
+      "bill_number": "HB1234",
+      "tracking_reason": "Example: Impacts local zoning authority",
+      "priority": "high",
+      "tags": ["zoning", "land-use"]
+    },
+    {
+      "bill_number": "SB567",
+      "tracking_reason": "Example: Revenue sharing formula changes",
+      "priority": "medium",
+      "tags": ["finance", "revenue"]
+    },
+    {
+      "bill_number": "HB890",
+      "tracking_reason": "Example: Emergency services funding",
+      "priority": "high",
+      "tags": ["public-safety", "ems", "funding"]
+    },
+    {
+      "bill_number": "SJ45",
+      "tracking_reason": "Example: Constitutional amendment on local authority",
+      "priority": "low",
+      "tags": ["constitutional", "local-government"]
+    }
+  ],
+  "metadata": {
+    "organization": "Your County/City Name",
+    "department": "Legislative Affairs",
+    "last_updated": "2025-01-20",
+    "contact": "legislative@yourcounty.gov",
+    "notes": "Bills tracked for 2025 General Assembly session"
+  }
+}

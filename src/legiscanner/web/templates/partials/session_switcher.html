@@ -1,0 +1,73 @@
+{% if all_sessions and all_sessions|length > 1 %}
+<div class="session-switcher">
+    <span class="session-switcher-label">Session:</span>
+    <select id="session-select" class="session-select">
+        {% for s in all_sessions %}
+        <option value="{{ s.id }}" {% if s.id == current_session_id %}selected{% endif %}>
+            {{ s.name }}{% if s.active %} (active){% endif %}
+        </option>
+        {% endfor %}
+    </select>
+    <button type="button" class="btn btn-sm btn-secondary" id="session-activate"
+            title="Make this the active session for the pipeline/CLI and all default views">
+        Set active
+    </button>
+    <span style="font-size: 0.7rem; color: var(--text-muted); margin-left: auto;">
+        Selecting a session browses it; “Set active” changes the pipeline/CLI default.
+    </span>
+</div>
+{% elif all_sessions and all_sessions|length == 1 %}
+<div class="session-switcher">
+    <span class="session-switcher-label">Session:</span>
+    <span class="session-current">{{ all_sessions[0].name }}</span>
+</div>
+{% endif %}
+
+<script>
+(function () {
+    const sel = document.getElementById('session-select');
+    if (!sel) return;
+
+    // Browse a different session: carry the session param to the /bills HTMX
+    // refresh so the grid re-renders for the chosen session (view-only; does
+    // not change the "active" session).
+    sel.addEventListener('change', () => {
+        const sid = sel.value;
+        const listEl = document.querySelector('[hx-get="/bills"]');
+        if (listEl) {
+            listEl.setAttribute('hx-vals', JSON.stringify({ session: sid }));
+            htmx.trigger(listEl, 'change');
+        } else {
+            // No list on this page (e.g. a full-page view) — navigate the main
+            // index to the session.
+            const url = new URL(window.location.origin + '/');
+            url.searchParams.set('session', sid);
+            window.location.href = url.toString();
+        }
+    });
+
+    const btn = document.getElementById('session-activate');
+    if (btn) {
+        btn.addEventListener('click', async () => {
+            const sid = sel.value;
+            const form = new URLSearchParams();
+            form.set('session_id', sid);
+            try {
+                const r = await fetch('/session/switch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: form.toString(),
+                });
+                const data = await r.json();
+                if (data.ok) {
+                    window.location.href = '/';
+                } else {
+                    alert('Failed to switch session: ' + (data.detail || 'unknown error'));
+                }
+            } catch (e) {
+                alert('Failed to switch session: ' + e.message);
+            }
+        });
+    }
+})();
+</script>

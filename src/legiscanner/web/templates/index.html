@@ -1,0 +1,501 @@
+{% extends "base.html" %}
+
+{% block title %}Legiscanner - Virginia Bill Tracker{% endblock %}
+
+{% block content %}
+<header>
+    <div class="container">
+        <h1>Legiscanner</h1>
+        <div class="subtitle">Virginia Legislative Bill Tracker for Local Government</div>
+        <a href="/compare" style="color: white; opacity: 0.7; text-decoration: none; margin-left: 1rem; font-size: 0.875rem; transition: opacity 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.7">Compare Versions</a> <a href="/lineage" style="color: white; opacity: 0.7; text-decoration: none; margin-left: 1rem; font-size: 0.875rem; transition: opacity 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.7">Lineages</a> <a href="/help" style="color: white; opacity: 0.7; text-decoration: none; margin-left: 1rem; font-size: 0.875rem; transition: opacity 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.7">Help</a>
+    </div>
+</header>
+
+<div class="container">
+    <!-- Session switcher (multi-session browsing) -->
+    {% include "partials/session_switcher.html" %}
+
+    <!-- Pipeline Controls -->
+    <div class="pipeline-panel">
+        <span class="pipeline-label">Data:</span>
+        <button class="btn btn-sm btn-primary"
+                hx-post="/pipeline/update"
+                hx-target="#pipeline-status"
+                hx-swap="innerHTML">
+            ↻ Smart Update
+        </button>
+        <button class="btn btn-sm btn-secondary"
+                hx-post="/pipeline/refresh"
+                hx-target="#pipeline-status"
+                hx-swap="innerHTML"
+                hx-confirm="Full refresh will re-fetch all bills from LegiScan. Continue?">
+            ↺ Full Refresh
+        </button>
+        <button class="btn btn-sm btn-secondary"
+                hx-post="/pipeline/autotag"
+                hx-target="#pipeline-status"
+                hx-swap="innerHTML">
+            ✦ Auto-tag New
+        </button>
+        <div id="pipeline-status"><span class="pipeline-idle">Ready</span></div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filters">
+        <div class="filter-group">
+            <label for="search">Search</label>
+            <input type="text" id="search" name="search" placeholder="Search bills..."
+                   hx-get="/bills"
+                   hx-trigger="keyup changed delay:300ms"
+                   hx-target="#bill-grid"
+                   hx-include="#impact, #hide_low_relevance, #watching_only, #tags, #sort, #bill_numbers">
+        </div>
+
+        <div class="filter-group bill-numbers-filter">
+            <label for="bill_numbers">Bill Numbers</label>
+            <input type="text" id="bill_numbers" name="bill_numbers" placeholder="HB1234, SB567..."
+                   hx-get="/bills"
+                   hx-trigger="keyup changed delay:500ms"
+                   hx-target="#bill-grid"
+                   hx-include="#search, #impact, #hide_low_relevance, #watching_only, #tags, #sort">
+            <small class="filter-hint">Comma-separated bill numbers</small>
+        </div>
+
+        <div class="filter-group">
+            <label>Impact</label>
+            <div class="impact-filter">
+                <input type="hidden" id="impact" name="impact" value=""
+                       hx-get="/bills"
+                       hx-trigger="change"
+                       hx-target="#bill-grid"
+                       hx-include="#search, #hide_low_relevance, #watching_only, #tags, #sort, #bill_numbers">
+                <label class="impact-checkbox">
+                    <input type="checkbox" value="5" checked onchange="updateImpactFilter()">
+                    <span class="impact-badge impact-5">5</span>
+                </label>
+                <label class="impact-checkbox">
+                    <input type="checkbox" value="4" checked onchange="updateImpactFilter()">
+                    <span class="impact-badge impact-4">4</span>
+                </label>
+                <label class="impact-checkbox">
+                    <input type="checkbox" value="3" checked onchange="updateImpactFilter()">
+                    <span class="impact-badge impact-3">3</span>
+                </label>
+                <label class="impact-checkbox">
+                    <input type="checkbox" value="2" checked onchange="updateImpactFilter()">
+                    <span class="impact-badge impact-2">2</span>
+                </label>
+                <label class="impact-checkbox">
+                    <input type="checkbox" value="1" onchange="updateImpactFilter()">
+                    <span class="impact-badge impact-1">1</span>
+                </label>
+            </div>
+        </div>
+
+        <div class="filter-group checkbox-group">
+            <label>
+                <input type="checkbox" id="hide_low_relevance" name="hide_low_relevance" value="on" checked
+                       hx-get="/bills"
+                       hx-trigger="change"
+                       hx-target="#bill-grid"
+                       hx-include="#search, #impact, #watching_only, #tags, #sort, #bill_numbers">
+                Hide low relevance
+            </label>
+        </div>
+
+        <div class="filter-group checkbox-group">
+            <label>
+                <input type="checkbox" id="watching_only" name="watching_only" value="on"
+                       hx-get="/bills"
+                       hx-trigger="change"
+                       hx-target="#bill-grid"
+                       hx-include="#search, #impact, #hide_low_relevance, #tags, #sort, #bill_numbers">
+                Watching only
+            </label>
+        </div>
+
+        <div class="filter-group">
+            <label>Tags</label>
+            <div class="tag-filter-container">
+                <input type="text" id="tag-search" placeholder="Search tags...">
+                <input type="hidden" id="tags" name="tags" value=""
+                       hx-get="/bills"
+                       hx-trigger="change"
+                       hx-target="#bill-grid"
+                       hx-include="#search, #impact, #hide_low_relevance, #watching_only, #sort, #bill_numbers">
+                <div class="tag-dropdown" id="tag-dropdown">
+                    {% for tag in all_tags %}
+                    <label class="tag-dropdown-item">
+                        <input type="checkbox" value="{{ tag }}" onchange="toggleTag(this.value)">
+                        {{ tag }}
+                    </label>
+                    {% endfor %}
+                </div>
+                <div class="selected-tags" id="selected-tags"></div>
+            </div>
+        </div>
+
+        <div class="filter-group">
+            <label for="sort">Sort</label>
+            <select id="sort" name="sort"
+                    hx-get="/bills"
+                    hx-trigger="change"
+                    hx-target="#bill-grid"
+                    hx-include="#search, #impact, #hide_low_relevance, #watching_only, #tags, #bill_numbers">
+                <option value="bill_number">Bill Number</option>
+                <option value="impact">Impact</option>
+                <option value="watching">Watching First</option>
+                <option value="last_action_date">Last Action</option>
+                <option value="title">Title</option>
+            </select>
+        </div>
+
+        <div class="bill-count" id="bill-count">{{ bill_count }} bills</div>
+    </div>
+
+    <!-- Bulk Actions -->
+    <div class="bulk-actions" id="bulk-actions">
+        <span class="bulk-actions-label">Bulk Actions:</span>
+        <button class="btn btn-sm btn-secondary"
+                hx-post="/bills/bulk/watch"
+                hx-target="#bill-grid"
+                hx-include="#search, #impact, #hide_low_relevance, #watching_only, #tags, #sort, #bill_numbers"
+                hx-confirm="Watch all filtered bills?">
+            &#9734; Watch All
+        </button>
+        <button class="btn btn-sm btn-secondary"
+                hx-post="/bills/bulk/unwatch"
+                hx-target="#bill-grid"
+                hx-include="#search, #impact, #hide_low_relevance, #watching_only, #tags, #sort, #bill_numbers"
+                hx-confirm="Unwatch all filtered bills?">
+            Unwatch All
+        </button>
+        <div class="bulk-tag-form">
+            <select id="bulk_tag_select" name="bulk_tag_select" class="bulk-tag-select">
+                <option value="">Select existing tag...</option>
+                {% for tag in all_tags %}
+                <option value="{{ tag }}">{{ tag }}</option>
+                {% endfor %}
+            </select>
+            <button class="btn btn-sm btn-primary"
+                    hx-post="/bills/bulk/tag"
+                    hx-target="#bill-grid"
+                    hx-include="#search, #impact, #hide_low_relevance, #watching_only, #tags, #sort, #bill_numbers, #bulk_tag_select"
+                    hx-vals='js:{bulk_tag: document.getElementById("bulk_tag_select").value}'
+                    hx-confirm="Add this tag to all filtered bills?"
+                    onclick="if (!document.getElementById('bulk_tag_select').value) { alert('Please select a tag'); return false; }">
+                Apply Tag
+            </button>
+            <span style="color: var(--text-muted); font-size: 0.75rem;">or</span>
+            <input type="text" id="bulk_tag_new" name="bulk_tag_new" placeholder="Create new tag..." class="bulk-tag-input">
+            <button class="btn btn-sm btn-primary"
+                    hx-post="/bills/bulk/tag"
+                    hx-target="#bill-grid"
+                    hx-include="#search, #impact, #hide_low_relevance, #watching_only, #tags, #sort, #bill_numbers, #bulk_tag_new"
+                    hx-vals='js:{bulk_tag: document.getElementById("bulk_tag_new").value}'
+                    hx-confirm="Add this tag to all filtered bills?"
+                    onclick="if (!document.getElementById('bulk_tag_new').value.trim()) { alert('Please enter a tag name'); return false; }">
+                Create & Tag
+            </button>
+        </div>
+        <div class="bulk-tag-form">
+            <select id="bulk_delete_tag_select" name="bulk_delete_tag_select" class="bulk-tag-select">
+                <option value="">Select tag to delete...</option>
+                {% for tag in all_tags %}
+                <option value="{{ tag }}">{{ tag }}</option>
+                {% endfor %}
+            </select>
+            <button class="btn btn-sm btn-danger"
+                    hx-post="/bills/bulk/delete-tag"
+                    hx-target="#bill-grid"
+                    hx-include="#search, #impact, #hide_low_relevance, #watching_only, #tags, #sort, #bill_numbers, #bulk_delete_tag_select"
+                    hx-vals='js:{delete_tag: document.getElementById("bulk_delete_tag_select").value}'
+                    hx-confirm="Remove this tag from all filtered bills? This will delete it from both user tags and AI tags."
+                    onclick="if (!document.getElementById('bulk_delete_tag_select').value) { alert('Please select a tag to delete'); return false; }">
+                Delete Tag
+            </button>
+        </div>
+        <button class="btn btn-sm btn-success" onclick="openExportModal()">
+            📥 Export CSV
+        </button>
+    </div>
+
+    <!-- Bill Grid -->
+    <div class="bill-grid" id="bill-grid">
+        {% include "partials/bill_list.html" %}
+    </div>
+</div>
+
+<!-- Modal Overlay -->
+<div class="modal-overlay" id="modal-overlay">
+    <div class="modal">
+        <div class="modal-header">
+            <h2 id="modal-title">Bill Details</h2>
+            <button class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <div class="modal-body" id="modal-content">
+            <!-- Content loaded via HTMX -->
+        </div>
+    </div>
+</div>
+
+<!-- CSV Export Modal -->
+<div class="modal-overlay" id="export-modal-overlay">
+    <div class="modal">
+        <div class="modal-header">
+            <h2>Export to CSV</h2>
+            <button class="modal-close" onclick="closeExportModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p style="margin-bottom: 1rem; color: var(--text-muted);">
+                Select the columns to include in your CSV export. The export will include all currently filtered bills.
+            </p>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 0.75rem; margin-bottom: 1.5rem;">
+                <label class="export-column-checkbox">
+                    <input type="checkbox" name="export-col" value="bill_number" checked> Bill Number
+                </label>
+                <label class="export-column-checkbox">
+                    <input type="checkbox" name="export-col" value="title" checked> Title
+                </label>
+                <label class="export-column-checkbox">
+                    <input type="checkbox" name="export-col" value="status" checked> Status
+                </label>
+                <label class="export-column-checkbox">
+                    <input type="checkbox" name="export-col" value="ai_impact" checked> AI Impact (1-5, overall)
+                </label>
+                <label class="export-column-checkbox">
+                    <input type="checkbox" name="export-col" value="user_impact_override"> User Impact Override (overall)
+                </label>
+                <label class="export-column-checkbox">
+                    <input type="checkbox" name="export-col" value="outcome_scores" checked> Outcome Area Scores
+                </label>
+                <label class="export-column-checkbox">
+                    <input type="checkbox" name="export-col" value="ai_reason" checked> AI Analysis
+                </label>
+                <label class="export-column-checkbox">
+                    <input type="checkbox" name="export-col" value="ai_tags" checked> AI Tags
+                </label>
+                <label class="export-column-checkbox">
+                    <input type="checkbox" name="export-col" value="user_tags"> User Tags
+                </label>
+                <label class="export-column-checkbox">
+                    <input type="checkbox" name="export-col" value="watching" checked> Watching
+                </label>
+                <label class="export-column-checkbox">
+                    <input type="checkbox" name="export-col" value="notes"> Notes
+                </label>
+                <label class="export-column-checkbox">
+                    <input type="checkbox" name="export-col" value="companion_bills"> Companion Bills
+                </label>
+                <label class="export-column-checkbox">
+                    <input type="checkbox" name="export-col" value="introduced_date"> Introduced
+                </label>
+                <label class="export-column-checkbox">
+                    <input type="checkbox" name="export-col" value="last_action_date"> Last Action Date
+                </label>
+                <label class="export-column-checkbox">
+                    <input type="checkbox" name="export-col" value="last_action"> Last Action
+                </label>
+                <label class="export-column-checkbox">
+                    <input type="checkbox" name="export-col" value="sponsors"> Sponsors
+                </label>
+                <label class="export-column-checkbox">
+                    <input type="checkbox" name="export-col" value="subjects"> Subjects
+                </label>
+                <label class="export-column-checkbox">
+                    <input type="checkbox" name="export-col" value="description"> Description
+                </label>
+                <label class="export-column-checkbox">
+                    <input type="checkbox" name="export-col" value="legiscan_url"> LegiScan URL
+                </label>
+                <label class="export-column-checkbox">
+                    <input type="checkbox" name="export-col" value="state_url"> State URL
+                </label>
+            </div>
+
+            <div style="display: flex; gap: 0.75rem; justify-content: flex-end;">
+                <button class="btn btn-secondary" onclick="closeExportModal()">Cancel</button>
+                <button class="btn btn-success" onclick="downloadCSV()">Download CSV</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const allTags = {{ all_tags | tojson }};
+    let selectedTags = [];
+
+    // Impact filter functionality
+    function updateImpactFilter() {
+        const checkboxes = document.querySelectorAll('.impact-checkbox input[type="checkbox"]');
+        const selectedImpacts = [];
+        checkboxes.forEach(cb => {
+            if (cb.checked) {
+                selectedImpacts.push(cb.value);
+            }
+        });
+        // If levels 2,3,4,5 are all checked (and 1 is not), use empty string
+        // so hide_low_relevance logic kicks in (keeps NULLs, only excludes impact=1).
+        const has2345 = selectedImpacts.includes('2') && selectedImpacts.includes('3') && selectedImpacts.includes('4') && selectedImpacts.includes('5');
+        const has1 = selectedImpacts.includes('1');
+        if (has2345 && !has1) {
+            document.getElementById('impact').value = '';
+        } else {
+            document.getElementById('impact').value = selectedImpacts.join(',');
+        }
+        htmx.trigger('#impact', 'change');
+    }
+
+    // Tag filter functionality
+    const tagSearch = document.getElementById('tag-search');
+    const tagDropdown = document.getElementById('tag-dropdown');
+    const tagsInput = document.getElementById('tags');
+
+    tagSearch.addEventListener('focus', () => {
+        tagDropdown.classList.add('active');
+    });
+
+    tagSearch.addEventListener('input', (e) => {
+        const filter = e.target.value.toLowerCase();
+        document.querySelectorAll('.tag-dropdown-item').forEach(item => {
+            const text = item.textContent.toLowerCase();
+            item.style.display = text.includes(filter) ? '' : 'none';
+        });
+        tagDropdown.classList.add('active');
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.tag-filter-container')) {
+            tagDropdown.classList.remove('active');
+        }
+    });
+
+    function toggleTag(tag) {
+        const index = selectedTags.indexOf(tag);
+        if (index === -1) {
+            selectedTags.push(tag);
+        } else {
+            selectedTags.splice(index, 1);
+        }
+        updateTagsInput();
+        renderSelectedTags();
+        triggerFilter();
+    }
+
+    function removeTag(tag) {
+        selectedTags = selectedTags.filter(t => t !== tag);
+        // Update checkbox
+        const checkbox = Array.from(document.querySelectorAll('.tag-dropdown-item input'))
+            .find(cb => cb.value === tag);
+        if (checkbox) checkbox.checked = false;
+        updateTagsInput();
+        renderSelectedTags();
+        triggerFilter();
+    }
+
+    function updateTagsInput() {
+        tagsInput.value = selectedTags.join(',');
+    }
+
+    function renderSelectedTags() {
+        const container = document.getElementById('selected-tags');
+        // Built with DOM APIs (not innerHTML) so tag names are never parsed as HTML/JS.
+        container.replaceChildren(...selectedTags.map(tag => {
+            const span = document.createElement('span');
+            span.className = 'selected-tag';
+            span.append(tag + ' ');
+            const btn = document.createElement('button');
+            btn.textContent = '×';
+            btn.addEventListener('click', () => removeTag(tag));
+            span.appendChild(btn);
+            return span;
+        }));
+    }
+
+    function triggerFilter() {
+        // Trigger HTMX request on the tags input
+        htmx.trigger('#tags', 'change');
+    }
+
+    // Handle bill card clicks to open modal
+    document.addEventListener('click', (e) => {
+        const card = e.target.closest('.bill-card');
+        if (card && !e.target.closest('button')) {
+            const billNumber = card.dataset.billNumber;
+            htmx.ajax('GET', `/bill/${billNumber}`, {
+                target: '#modal-content',
+                swap: 'innerHTML'
+            }).then(() => {
+                setModalTitle(billNumber);
+                openModal();
+            });
+        }
+    });
+
+    // Update bill count after HTMX swap
+    document.body.addEventListener('htmx:afterSwap', (e) => {
+        if (e.detail.target.id === 'bill-grid') {
+            const count = e.detail.target.querySelectorAll('.bill-card').length;
+            document.getElementById('bill-count').textContent = `${count} bills`;
+        }
+    });
+
+    // CSV Export Modal functions
+    function openExportModal() {
+        document.getElementById('export-modal-overlay').classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeExportModal() {
+        document.getElementById('export-modal-overlay').classList.remove('active');
+        document.body.style.overflow = '';
+    }
+
+    function downloadCSV() {
+        // Get selected columns
+        const checkboxes = document.querySelectorAll('input[name="export-col"]:checked');
+        const selectedColumns = Array.from(checkboxes).map(cb => cb.value);
+
+        if (selectedColumns.length === 0) {
+            alert('Please select at least one column to export');
+            return;
+        }
+
+        // Build CSV export URL with current filter parameters
+        const params = new URLSearchParams();
+
+        // Add filter parameters
+        params.set('search', document.getElementById('search').value || '');
+        params.set('impact', document.getElementById('impact').value || '');
+        params.set('hide_low_relevance', document.getElementById('hide_low_relevance').checked ? 'on' : '');
+        params.set('watching_only', document.getElementById('watching_only').checked ? 'on' : '');
+        params.set('tags', document.getElementById('tags').value || '');
+        params.set('sort', document.getElementById('sort').value || 'bill_number');
+        params.set('bill_numbers', document.getElementById('bill_numbers').value || '');
+
+        // Add selected columns
+        params.set('columns', selectedColumns.join(','));
+
+        // Download CSV
+        window.location.href = `/export/csv?${params.toString()}`;
+
+        // Close modal
+        closeExportModal();
+    }
+
+    // Close export modal on escape
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeExportModal();
+        }
+    });
+
+    // Close export modal on overlay click
+    document.getElementById('export-modal-overlay').addEventListener('click', (e) => {
+        if (e.target.id === 'export-modal-overlay') {
+            closeExportModal();
+        }
+    });
+</script>
+{% endblock %}
